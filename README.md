@@ -19,7 +19,7 @@ A tiny, open-source macOS menu-bar app that remaps extra mouse buttons to keystr
 
 | Mouse button | What it does |
 |---|---|
-| Button 3 (Middle) | Hold to dictate with Wispr Flow (set this up in Wispr; don't map it in ClickKey) |
+| Button 3 (Middle) | Click to start dictating with Wispr Flow, click again to stop (set this up in Wispr; don't map it in ClickKey) |
 | Button 4 (Back) | **Return** via ClickKey, to submit what you just dictated |
 
 So you dictate with one thumb and send with the other, without touching the keyboard.
