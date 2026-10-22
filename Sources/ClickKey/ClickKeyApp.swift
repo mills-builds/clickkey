@@ -48,6 +48,8 @@ final class WindowManager {
     private var windows: [String: NSWindow] = [:]
 
     func showSettings() {
+        // onAppear doesn't re-fire when the reused window is reopened.
+        LaunchAtLogin.shared.refresh()
         show(id: Self.settingsID, title: "ClickKey Settings", resizable: true) { SettingsView() }
     }
 

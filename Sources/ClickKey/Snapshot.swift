@@ -34,7 +34,7 @@ enum SnapshotRenderer {
         let onboarding = OnboardingView()
             .environmentObject(EventTapManager.shared)
 
-        render(settings, size: CGSize(width: 560, height: 520), name: "settings", in: dir)
+        render(settings.frame(width: 560), size: nil, name: "settings", in: dir)
         render(onboarding, size: nil, name: "onboarding", in: dir)
     }
 

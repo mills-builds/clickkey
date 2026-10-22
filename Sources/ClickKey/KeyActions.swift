@@ -156,7 +156,9 @@ enum KeyPoster {
         let source = CGEventSource(stateID: .hidSystemState)
         for isDown in [true, false] {
             guard let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(code), keyDown: isDown) else { continue }
-            if !flags.isEmpty { event.flags = flags }
+            // Always set: an empty mask must still override held physical modifiers
+            // (e.g. a dictation hotkey) that the source state would otherwise leak in.
+            event.flags = flags
             event.post(tap: .cghidEventTap)
         }
     }

@@ -83,7 +83,11 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(minWidth: 540, idealWidth: 560, minHeight: 440, idealHeight: 520)
+        // Size to content: the grouped Form is a scroll view whose ideal height would
+        // otherwise be the fixed frame, leaving empty space below the last section.
+        .scrollDisabled(true)
+        .frame(minWidth: 540, idealWidth: 560)
+        .fixedSize(horizontal: false, vertical: true)
         .sheet(isPresented: $showingCapture) {
             CaptureSheet(existing: Set(store.mappings.map(\.button))) { store.add(button: $0) }
                 .environmentObject(tap)

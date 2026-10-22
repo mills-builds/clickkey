@@ -47,6 +47,9 @@ final class EventTapManager: ObservableObject {
             startTap()
         } else if !trusted, tap != nil {
             stopTap()
+        } else if let tap, !CGEvent.tapIsEnabled(tap: tap) {
+            // Backstop in case a disable notification was missed.
+            CGEvent.tapEnable(tap: tap, enable: true)
         }
     }
 
