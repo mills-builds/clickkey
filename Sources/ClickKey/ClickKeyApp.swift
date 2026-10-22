@@ -61,6 +61,28 @@ final class WindowManager {
         windows[id]?.close()
     }
 
+    /// Closes onboarding and opens Settings; no-op if onboarding was already dismissed.
+    func finishOnboarding() {
+        guard windows[Self.onboardingID]?.isVisible == true else { return }
+        close(Self.onboardingID)
+        showSettings()
+    }
+
+    /// Relaunches the app; a fresh process picks up an Accessibility grant the old one missed.
+    func relaunch() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        // Bundle path is passed as $0 to avoid quoting issues; the delay lets us exit first.
+        task.arguments = ["-c", "sleep 0.5; /usr/bin/open -n \"$0\"", Bundle.main.bundlePath]
+        do {
+            try task.run()
+        } catch {
+            NSLog("ClickKey: relaunch failed: \(error)")
+            return
+        }
+        NSApp.terminate(nil)
+    }
+
     private func show<Content: View>(id: String, title: String, resizable: Bool, content: () -> Content) {
         NSApp.activate(ignoringOtherApps: true)
         if let window = windows[id] {

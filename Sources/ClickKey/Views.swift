@@ -347,7 +347,8 @@ struct OnboardingView: View {
 
             Group {
                 if tap.isRunning {
-                    Label("Accessibility granted — ClickKey is active.", systemImage: "checkmark.circle.fill")
+                    Label("Accessibility granted — ClickKey is active. Opening Settings…", systemImage: "checkmark.circle.fill")
+                        .font(.headline)
                         .foregroundStyle(.green)
                 } else if tap.isTrusted {
                     Label("Permission looks granted, but the event tap couldn't start. Re-grant as described below.",
@@ -369,17 +370,33 @@ struct OnboardingView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack {
+                if tap.showRestartHint && !tap.isRunning {
+                    Button("Restart ClickKey") { WindowManager.shared.relaunch() }
+                        .help("Already granted? A fresh launch picks up the permission.")
+                }
                 Spacer()
                 Button("Close") { WindowManager.shared.close(WindowManager.onboardingID) }
                     .keyboardShortcut(.cancelAction)
-                Button("Open System Settings") { tap.requestAccessibility() }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(tap.isRunning)
+                if tap.isRunning {
+                    Button("Done") { WindowManager.shared.finishOnboarding() }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.defaultAction)
+                } else {
+                    Button("Open System Settings") { tap.requestAccessibility() }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.defaultAction)
+                }
             }
         }
         .padding(24)
         .frame(width: 480)
+        .onChange(of: tap.isRunning) { running in
+            guard running else { return }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                WindowManager.shared.finishOnboarding()
+            }
+        }
     }
 
     private func step(_ number: Int, _ text: String) -> some View {

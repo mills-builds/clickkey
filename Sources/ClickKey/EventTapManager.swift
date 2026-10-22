@@ -18,6 +18,8 @@ final class EventTapManager: ObservableObject {
 
     @Published private(set) var isTrusted = AXIsProcessTrusted()
     @Published private(set) var isRunning = false
+    /// Shown ~10s after "Open System Settings" if the grant still hasn't been picked up.
+    @Published private(set) var showRestartHint = false
 
     /// Snapshot of enabled mappings: button number -> action. Empty when globally disabled.
     var activeMappings: [Int: KeyAction] = [:]
@@ -29,11 +31,27 @@ final class EventTapManager: ObservableObject {
     private var runLoopSource: CFRunLoopSource?
     private var pollTimer: Timer?
     private var loggedFailure = false
+    private var accessibilityObserver: NSObjectProtocol?
+    /// The tap was created while AXIsProcessTrusted() still reported false (stale cache).
+    private var tapVerifiedWithoutAX = false
+    private var settingsOpenedAt: Date?
 
     // MARK: Trust polling
 
     func startMonitoring() {
         poll()
+        if accessibilityObserver == nil {
+            // Posted when any app's Accessibility grant changes; AX state can lag, so recheck twice.
+            accessibilityObserver = DistributedNotificationCenter.default().addObserver(
+                forName: Notification.Name("com.apple.accessibility.api"),
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                for delay in [0.5, 1.5] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self?.poll() }
+                }
+            }
+        }
         guard pollTimer == nil else { return }
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in self?.poll() }
         RunLoop.main.add(timer, forMode: .common)
@@ -41,19 +59,30 @@ final class EventTapManager: ObservableObject {
     }
 
     private func poll() {
-        let trusted = AXIsProcessTrusted()
-        if trusted != isTrusted { isTrusted = trusted }
-        if trusted, tap == nil {
-            startTap()
-        } else if !trusted, tap != nil {
+        let axTrusted = AXIsProcessTrusted()
+        if axTrusted { tapVerifiedWithoutAX = false }
+        if !axTrusted, tap != nil, !tapVerifiedWithoutAX {
+            // Revoked (or AX flickered): drop the tap and let the liveness test below decide.
             stopTap()
+        }
+        if tap == nil {
+            // Also a liveness test: tapCreate succeeds once access is really granted,
+            // even when AXIsProcessTrusted() hasn't caught up yet.
+            let started = startTap(logFailure: axTrusted)
+            tapVerifiedWithoutAX = started && !axTrusted
         } else if let tap, !CGEvent.tapIsEnabled(tap: tap) {
             // Backstop in case a disable notification was missed.
             CGEvent.tapEnable(tap: tap, enable: true)
         }
+        let trusted = axTrusted || tap != nil
+        if trusted != isTrusted { isTrusted = trusted }
+
+        let hint = !isRunning && settingsOpenedAt.map { Date().timeIntervalSince($0) >= 10 } == true
+        if hint != showRestartHint { showRestartHint = hint }
     }
 
     func requestAccessibility() {
+        if settingsOpenedAt == nil { settingsOpenedAt = Date() }
         // Literal value of kAXTrustedCheckOptionPrompt (avoids Unmanaged/CFString import differences).
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
@@ -69,7 +98,8 @@ final class EventTapManager: ObservableObject {
 
     // MARK: Tap lifecycle
 
-    private func startTap() {
+    @discardableResult
+    private func startTap(logFailure: Bool) -> Bool {
         let types: [CGEventType] = [.otherMouseDown, .otherMouseUp, .otherMouseDragged]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         guard let tap = CGEvent.tapCreate(
@@ -80,12 +110,12 @@ final class EventTapManager: ObservableObject {
             callback: tapCallback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            if !loggedFailure {
+            if logFailure, !loggedFailure {
                 NSLog("ClickKey: CGEvent.tapCreate failed. Try removing and re-adding ClickKey in Accessibility settings.")
                 loggedFailure = true
             }
             if isRunning { isRunning = false }
-            return
+            return false
         }
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
@@ -94,6 +124,7 @@ final class EventTapManager: ObservableObject {
         self.runLoopSource = source
         loggedFailure = false
         isRunning = true
+        return true
     }
 
     private func stopTap() {

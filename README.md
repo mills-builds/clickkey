@@ -2,6 +2,12 @@
 
 A tiny, open-source macOS menu-bar app that remaps extra mouse buttons to keystrokes or media keys: a minimal alternative to SteerMouse for people who only need button → key.
 
+<p align="center">
+  <img src="screenshots/settings-appkit.png" width="480" alt="ClickKey settings">
+  <img src="screenshots/onboarding-appkit.png" width="440" alt="ClickKey Accessibility onboarding">
+</p>
+
+
 - Map middle, back, forward and any extra button to **Return, Escape, Tab, Space, Delete, ⌘C, ⌘V, ⌘Z, ⇧⌘Z**, any recorded shortcut, or **Play/Pause, Next, Previous, Volume Up/Down, Mute**
 - Mapped buttons are swallowed (down and up), so the app underneath never sees the click
 - Per-mapping toggles, a global on/off switch in the menu bar, and launch at login
@@ -27,7 +33,7 @@ So you dictate with one thumb and send with the other, without touching the keyb
 
 ## Accessibility permission
 
-ClickKey uses a `CGEventTap` to see mouse button presses and post keystrokes, and macOS requires **Accessibility** access for that. On first launch an onboarding window explains this and offers **Open System Settings**. Turn ClickKey on under *Privacy & Security → Accessibility*. ClickKey checks once per second and starts working as soon as access is granted. You don't need to relaunch.
+ClickKey uses a `CGEventTap` to see mouse button presses and post keystrokes, and macOS requires **Accessibility** access for that. On first launch an onboarding window explains this and offers **Open System Settings**. Turn ClickKey on under *Privacy & Security → Accessibility*. ClickKey listens for permission changes (and also checks once per second), starts working as soon as access is granted, then closes onboarding and opens Settings. You usually don't need to relaunch.
 
 ### After rebuilding or updating
 
@@ -36,6 +42,15 @@ The build is ad-hoc signed, so **every rebuild produces a new code signature** a
 1. Open *System Settings → Privacy & Security → Accessibility*.
 2. Select ClickKey and remove it with **–**.
 3. Add it again with **+** (or relaunch ClickKey and click **Open System Settings**), then switch it on.
+
+## Troubleshooting
+
+- **Permission is granted but ClickKey still says "Waiting for permission…"**: macOS sometimes doesn't report a new grant to a running app. About 10 seconds after you click **Open System Settings**, the onboarding window shows a **Restart ClickKey** button. Click it to relaunch ClickKey, which then picks up the permission.
+- **A stale entry from an earlier build persists** (ClickKey is listed and switched on, but nothing works even after a restart): reset its Accessibility record, then relaunch ClickKey and grant access again:
+
+  ```sh
+  tccutil reset Accessibility com.millsbuilds.clickkey
+  ```
 
 ## Conflicts with other remappers
 
